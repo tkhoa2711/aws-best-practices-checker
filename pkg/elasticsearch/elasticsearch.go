@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+	"regexp"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elasticsearchservice"
-	"regexp"
 )
 
 func getAllElasticsearchDomains() ([]string, error) {
@@ -29,8 +30,7 @@ func getAllElasticsearchDomains() ([]string, error) {
 	return domainNames, nil
 }
 
-func getInstanceType(domainName *string) (*string, error) {
-	// TODO: can we extract this session logic out?
+func getDomainStatus(domainName *string) (*elasticsearchservice.ElasticsearchDomainStatus, error) {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -44,7 +44,16 @@ func getInstanceType(domainName *string) (*string, error) {
 		return nil, err
 	}
 
-	return esDomainStatus.DomainStatus.ElasticsearchClusterConfig.InstanceType, nil
+	return esDomainStatus.DomainStatus, nil
+}
+
+func getInstanceType(domainName *string) (*string, error) {
+	esDomainStatus, err := getDomainStatus(domainName)
+	if err != nil {
+		return nil, err
+	}
+
+	return esDomainStatus.ElasticsearchClusterConfig.InstanceType, nil
 }
 
 func isProduction(domainName *string) (bool, error) {
@@ -82,6 +91,9 @@ func CheckInstanceType(domainName *string) error {
 	usingT3Small, err := regexp.MatchString(`t3\.small`, *instanceType)
 	if isProduction && usingT3Small {
 		fmt.Println(*domainName, "- You should not use `t3.small` instances for production")
+	}
+	if err != nil {
+		return err
 	}
 
 	return nil
