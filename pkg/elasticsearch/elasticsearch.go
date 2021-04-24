@@ -99,10 +99,43 @@ func CheckInstanceType(domainName *string) error {
 	return nil
 }
 
+func checkDedicatedMasterNodes(domainName *string) error {
+	// https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-managedomains-dedicatedmasternodes.html
+	isProduction, err := isProduction(domainName)
+	if err != nil {
+		return err
+	}
+	if !isProduction {
+		return nil
+	}
+
+	esDomainStatus, err := getDomainStatus(domainName)
+	if err != nil {
+		return err
+	}
+
+	dedicatedMasterCount := esDomainStatus.ElasticsearchClusterConfig.DedicatedMasterCount
+	if dedicatedMasterCount == nil {
+		fmt.Println(*domainName, "- has no dedicated master node")
+		return nil
+	}
+
+	if *dedicatedMasterCount < 3 {
+		fmt.Println(*domainName, "- has less than 3 dedicated master nodes")
+	}
+	if *dedicatedMasterCount > 0 && *dedicatedMasterCount%2 == 0 {
+		fmt.Println(*domainName, "- has an even number of dedicated master nodes")
+	}
+
+	return nil
+}
+
 func main() {
 	elasticsearchDomains, _ := getAllElasticsearchDomains()
 	for _, domainName := range elasticsearchDomains {
 		err := CheckInstanceType(&domainName)
+		err = checkDedicatedMasterNodes(&domainName)
+
 		if err != nil {
 			fmt.Println(err)
 		}
