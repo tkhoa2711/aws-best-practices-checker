@@ -1,4 +1,4 @@
-package main
+package elasticsearch
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elasticsearchservice"
 )
 
-func getAllElasticsearchDomains() ([]string, error) {
+func GetAllElasticsearchDomains() ([]string, error) {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -99,7 +99,7 @@ func CheckInstanceType(domainName *string) error {
 	return nil
 }
 
-func checkDedicatedMasterNodes(domainName *string) error {
+func CheckDedicatedMasterNodes(domainName *string) error {
 	// https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-managedomains-dedicatedmasternodes.html
 	isProduction, err := isProduction(domainName)
 	if err != nil {
@@ -128,16 +128,4 @@ func checkDedicatedMasterNodes(domainName *string) error {
 	}
 
 	return nil
-}
-
-func main() {
-	elasticsearchDomains, _ := getAllElasticsearchDomains()
-	for _, domainName := range elasticsearchDomains {
-		err := CheckInstanceType(&domainName)
-		err = checkDedicatedMasterNodes(&domainName)
-
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
 }
