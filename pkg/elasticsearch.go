@@ -1,21 +1,26 @@
 package elasticsearch
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/elasticsearchservice"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/elasticsearchservice"
+	"github.com/aws/aws-sdk-go-v2/service/elasticsearchservice/types"
 )
 
 func GetAllElasticsearchDomains() ([]string, error) {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
+	cfg, err := config.LoadDefaultConfig(
+		context.TODO(),
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	svc := elasticsearchservice.New(sess)
+	svc := elasticsearchservice.NewFromConfig(cfg)
 
-	output, err := svc.ListDomainNames(&elasticsearchservice.ListDomainNamesInput{})
+	output, err := svc.ListDomainNames(context.TODO(), &elasticsearchservice.ListDomainNamesInput{})
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -30,21 +35,27 @@ func GetAllElasticsearchDomains() ([]string, error) {
 	return domainNames, nil
 }
 
-func getDomainStatus(domainName *string) (*elasticsearchservice.ElasticsearchDomainStatus, error) {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	svc := elasticsearchservice.New(sess)
-
-	esDomainStatus, err := svc.DescribeElasticsearchDomain(&elasticsearchservice.DescribeElasticsearchDomainInput{
-		DomainName: domainName,
-	})
+func getDomainStatus(domainName *string) (*types.ElasticsearchDomainStatus, error) {
+	cfg, err := config.LoadDefaultConfig(
+		context.TODO(),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return esDomainStatus.DomainStatus, nil
+	svc := elasticsearchservice.NewFromConfig(cfg)
+
+	out, err := svc.DescribeElasticsearchDomain(
+		context.TODO(),
+		&elasticsearchservice.DescribeElasticsearchDomainInput{
+			DomainName: domainName,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return out.DomainStatus, nil
 }
 
 func getInstanceType(domainName *string) (*string, error) {
@@ -53,7 +64,7 @@ func getInstanceType(domainName *string) (*string, error) {
 		return nil, err
 	}
 
-	return esDomainStatus.ElasticsearchClusterConfig.InstanceType, nil
+	return (*string)(&esDomainStatus.ElasticsearchClusterConfig.InstanceType), nil
 }
 
 func isProduction(domainName *string) (bool, error) {
