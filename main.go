@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	elasticsearch "github.com/tkhoa2711/aws-best-practices-checker/pkg/elasticsearch"
+	"github.com/tkhoa2711/aws-best-practices-checker/pkg/s3"
 )
 
 var (
@@ -26,5 +27,10 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
+	}
+
+	err := s3.CheckS3()
+	if err != nil {
+		fmt.Println(err)
 	}
 }
