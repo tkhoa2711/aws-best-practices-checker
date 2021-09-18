@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	elasticsearch "github.com/tkhoa2711/aws-best-practices-checker/pkg/elasticsearch"
+	"github.com/tkhoa2711/aws-best-practices-checker/pkg/elasticsearch"
 	"github.com/tkhoa2711/aws-best-practices-checker/pkg/s3"
 )
 
@@ -15,21 +15,14 @@ var (
 func main() {
 	flag.BoolVar(&ignoreNonProdEnv, "ignore-non-prod", true, "Whether to ignore non-production environments, such as dev and staging")
 
-	elasticsearchDomains, _ := elasticsearch.GetAllElasticsearchDomains()
-	for _, domainName := range elasticsearchDomains {
-		err := elasticsearch.CheckInstanceType(&domainName)
-		if err != nil {
-			fmt.Println(err)
-		}
+	var err error
 
-		err = elasticsearch.CheckDedicatedMasterNodes(&domainName)
-
-		if err != nil {
-			fmt.Println(err)
-		}
+	err = elasticsearch.Check()
+	if err != nil {
+		fmt.Println(err)
 	}
 
-	err := s3.CheckS3()
+	err = s3.Check()
 	if err != nil {
 		fmt.Println(err)
 	}

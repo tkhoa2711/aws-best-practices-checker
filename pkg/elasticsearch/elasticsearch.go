@@ -3,6 +3,7 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -10,17 +11,49 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticsearchservice/types"
 )
 
-func GetAllElasticsearchDomains() ([]string, error) {
-	cfg, err := config.LoadDefaultConfig(
-		context.TODO(),
-	)
+// Function signature for those performing the checks
+type CheckFn func(domainName *string) error
+
+var (
+	client *elasticsearchservice.Client
+)
+
+func init() {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
-	svc := elasticsearchservice.NewFromConfig(cfg)
+	client = elasticsearchservice.NewFromConfig(cfg)
+}
 
-	output, err := svc.ListDomainNames(context.TODO(), &elasticsearchservice.ListDomainNamesInput{})
+// Check checks for best practices for AWS Elasticsearch Service
+func Check() error {
+	fmt.Println("Checking Elasticsearch Service...")
+
+	checks := []CheckFn{
+		CheckInstanceType,
+		CheckDedicatedMasterNodes,
+	}
+
+	esDomains, err := GetAllElasticsearchDomains()
+	if err != nil {
+		return err
+	}
+
+	for _, esDomain := range esDomains {
+		for _, check := range checks {
+			err := check(&esDomain)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func GetAllElasticsearchDomains() ([]string, error) {
+	output, err := client.ListDomainNames(context.TODO(), &elasticsearchservice.ListDomainNamesInput{})
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -36,16 +69,7 @@ func GetAllElasticsearchDomains() ([]string, error) {
 }
 
 func getDomainStatus(domainName *string) (*types.ElasticsearchDomainStatus, error) {
-	cfg, err := config.LoadDefaultConfig(
-		context.TODO(),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	svc := elasticsearchservice.NewFromConfig(cfg)
-
-	out, err := svc.DescribeElasticsearchDomain(
+	out, err := client.DescribeElasticsearchDomain(
 		context.TODO(),
 		&elasticsearchservice.DescribeElasticsearchDomainInput{
 			DomainName: domainName,

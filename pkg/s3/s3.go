@@ -28,8 +28,8 @@ func init() {
 	client = s3.NewFromConfig(cfg)
 }
 
-// CheckS3 checks best practices for AWS S3
-func CheckS3() error {
+// Check checks for best practices for AWS S3
+func Check() error {
 	fmt.Println("Checking S3...")
 	checks := []CheckFn{
 		CheckPublicAccessBlockingEnabled,
