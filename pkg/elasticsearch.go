@@ -69,14 +69,22 @@ func getInstanceType(domainName *string) (*string, error) {
 
 func isProduction(domainName *string) (bool, error) {
 	// TODO: make this list configurable
-	matchedProd, err := regexp.MatchString(`(?i)prod`, *domainName)
-	matchedDemo, err := regexp.MatchString(`(?i)demo`, *domainName)
-
-	if err != nil {
-		return false, err
+	patterns := []string{
+		`(?i)prod`,
+		`(?i)demo`,
 	}
 
-	return matchedProd || matchedDemo, nil
+	for _, p := range patterns {
+		matched, err := regexp.MatchString(p, *domainName)
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func CheckInstanceType(domainName *string) error {
@@ -95,6 +103,9 @@ func CheckInstanceType(domainName *string) error {
 	}
 
 	usingT2, err := regexp.MatchString(`t2`, *instanceType)
+	if err != nil {
+		return err
+	}
 	if isProduction && usingT2 {
 		fmt.Println(*domainName, "- You should not use `t2` instances for production")
 	}
