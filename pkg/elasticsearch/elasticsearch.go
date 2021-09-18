@@ -6,13 +6,14 @@ import (
 	"log"
 	"regexp"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/elasticsearchservice"
 	"github.com/aws/aws-sdk-go-v2/service/elasticsearchservice/types"
 )
 
 // Function signature for those performing the checks
-type CheckFn func(domainName *string) error
+type CheckFn func(domainName string) error
 
 var (
 	client *elasticsearchservice.Client
@@ -43,7 +44,7 @@ func Check() error {
 
 	for _, esDomain := range esDomains {
 		for _, check := range checks {
-			err := check(&esDomain)
+			err := check(esDomain)
 			if err != nil {
 				return err
 			}
@@ -68,11 +69,11 @@ func GetAllElasticsearchDomains() ([]string, error) {
 	return domainNames, nil
 }
 
-func getDomainStatus(domainName *string) (*types.ElasticsearchDomainStatus, error) {
+func getDomainStatus(domainName string) (*types.ElasticsearchDomainStatus, error) {
 	out, err := client.DescribeElasticsearchDomain(
 		context.TODO(),
 		&elasticsearchservice.DescribeElasticsearchDomainInput{
-			DomainName: domainName,
+			DomainName: aws.String(domainName),
 		},
 	)
 	if err != nil {
@@ -82,16 +83,16 @@ func getDomainStatus(domainName *string) (*types.ElasticsearchDomainStatus, erro
 	return out.DomainStatus, nil
 }
 
-func getInstanceType(domainName *string) (*string, error) {
+func getInstanceType(domainName string) (string, error) {
 	esDomainStatus, err := getDomainStatus(domainName)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return (*string)(&esDomainStatus.ElasticsearchClusterConfig.InstanceType), nil
+	return string(esDomainStatus.ElasticsearchClusterConfig.InstanceType), nil
 }
 
-func isProduction(domainName *string) (bool, error) {
+func isProduction(domainName string) (bool, error) {
 	// TODO: make this list configurable
 	patterns := []string{
 		`(?i)prod`,
@@ -99,7 +100,7 @@ func isProduction(domainName *string) (bool, error) {
 	}
 
 	for _, p := range patterns {
-		matched, err := regexp.MatchString(p, *domainName)
+		matched, err := regexp.MatchString(p, domainName)
 		if err != nil {
 			return false, err
 		}
@@ -111,7 +112,7 @@ func isProduction(domainName *string) (bool, error) {
 	return false, nil
 }
 
-func CheckInstanceType(domainName *string) error {
+func CheckInstanceType(domainName string) error {
 	// https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/aes-bp.html
 	// Don't use T2 or t3.small instances for production domains; they can become
 	// unstable under sustained heavy load. t3.medium instances are an option for
@@ -126,17 +127,17 @@ func CheckInstanceType(domainName *string) error {
 		return err
 	}
 
-	usingT2, err := regexp.MatchString(`t2`, *instanceType)
+	usingT2, err := regexp.MatchString(`t2`, instanceType)
 	if err != nil {
 		return err
 	}
 	if isProduction && usingT2 {
-		fmt.Println(*domainName, "- You should not use `t2` instances for production")
+		fmt.Println(domainName, "- You should not use `t2` instances for production")
 	}
 
-	usingT3Small, err := regexp.MatchString(`t3\.small`, *instanceType)
+	usingT3Small, err := regexp.MatchString(`t3\.small`, instanceType)
 	if isProduction && usingT3Small {
-		fmt.Println(*domainName, "- You should not use `t3.small` instances for production")
+		fmt.Println(domainName, "- You should not use `t3.small` instances for production")
 	}
 	if err != nil {
 		return err
@@ -145,7 +146,7 @@ func CheckInstanceType(domainName *string) error {
 	return nil
 }
 
-func CheckDedicatedMasterNodes(domainName *string) error {
+func CheckDedicatedMasterNodes(domainName string) error {
 	// https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-managedomains-dedicatedmasternodes.html
 	isProduction, err := isProduction(domainName)
 	if err != nil {
@@ -162,15 +163,15 @@ func CheckDedicatedMasterNodes(domainName *string) error {
 
 	dedicatedMasterCount := esDomainStatus.ElasticsearchClusterConfig.DedicatedMasterCount
 	if dedicatedMasterCount == nil {
-		fmt.Println(*domainName, "- has no dedicated master node")
+		fmt.Println(domainName, "- has no dedicated master node")
 		return nil
 	}
 
 	if *dedicatedMasterCount < 3 {
-		fmt.Println(*domainName, "- has less than 3 dedicated master nodes")
+		fmt.Println(domainName, "- has less than 3 dedicated master nodes")
 	}
 	if *dedicatedMasterCount > 0 && *dedicatedMasterCount%2 == 0 {
-		fmt.Println(*domainName, "- has an even number of dedicated master nodes")
+		fmt.Println(domainName, "- has an even number of dedicated master nodes")
 	}
 
 	return nil
